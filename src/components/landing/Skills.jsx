@@ -38,9 +38,9 @@ const itemVariants = {
 };
 
 export default function Skills({ skillsSections = [] }) {
-    // ---- data logic (unchanged) ----
     const hasData = Array.isArray(skillsSections) && skillsSections.length > 0;
 
+    // fallback defaults (unchanged)
     const defaultCategories = [
         {
             categoryName: 'Technical',
@@ -56,54 +56,6 @@ export default function Skills({ skillsSections = [] }) {
                                 { name: 'REST APIs' },
                             ],
                         },
-                        {
-                            skillName: 'Databases',
-                            skillTools: [
-                                { name: 'MySQL' },
-                                { name: 'PostgreSQL' },
-                                { name: 'MongoDB' },
-                            ],
-                        },
-                    ],
-                },
-                {
-                    expertiseName: 'Frontend Development',
-                    skills: [
-                        {
-                            skillName: 'UI Frameworks',
-                            skillTools: [
-                                { name: 'React' },
-                                { name: 'Vue.js' },
-                                { name: 'Next.js' },
-                            ],
-                        },
-                        {
-                            expertiseName: 'Styling',
-                            skillName: 'Styling',
-                            skillTools: [
-                                { name: 'Tailwind CSS' },
-                                { name: 'CSS3' },
-                                { name: 'SCSS' },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            categoryName: 'Soft Skills',
-            expertises: [
-                {
-                    expertiseName: 'Communication',
-                    skills: [
-                        { skillName: 'Presenting', skillTools: [{ name: 'Storytelling' }] },
-                        { skillName: 'Writing', skillTools: [{ name: 'Technical Writing' }] },
-                    ],
-                },
-                {
-                    expertiseName: 'Leadership',
-                    skills: [
-                        { skillName: 'Mentoring', skillTools: [{ name: '1:1 Coaching' }] },
                     ],
                 },
             ],
@@ -111,22 +63,49 @@ export default function Skills({ skillsSections = [] }) {
     ];
 
     let categories = defaultCategories;
+
     if (hasData) {
         if (skillsSections[0].categoryName) {
             categories = skillsSections.map((c) => ({
                 categoryName: c.categoryName || 'Category',
                 expertises: Array.isArray(c.expertises) ? c.expertises : [],
             }));
+        } else if (skillsSections[0].expertiseName && Array.isArray(skillsSections[0].skills)) {
+            // transform incoming shape where expertiseName is top-level (your payload)
+            categories = skillsSections.map((c) => {
+                const expertises = Array.isArray(c.skills)
+                    ? c.skills.map((s) => ({
+                          expertiseName: s.skillName ?? s.expertiseName ?? 'Expertise',
+                          skills: Array.isArray(s.skillTools)
+                              ? [
+                                    {
+                                        skillName: s.skillName ?? 'Skill',
+                                        skillTools: s.skillTools.map((t) =>
+                                            typeof t === 'string' ? { name: t } : { name: t.name ?? 'Tool', uuid: t.uuid }
+                                        ),
+                                        uuid: s.uuid,
+                                    },
+                                ]
+                              : [],
+                          uuid: s.uuid,
+                      }))
+                    : [];
+
+                return {
+                    categoryName: c.expertiseName || 'Category',
+                    expertises,
+                    uuid: c.uuid,
+                };
+            });
         } else {
             categories = [
                 {
-                    categoryName: 'Technical',
+                    categoryName: 'Skills',
                     expertises: skillsSections,
                 },
             ];
         }
     }
-    // ---- end data logic ----
 
     return (
         <motion.section
@@ -137,12 +116,10 @@ export default function Skills({ skillsSections = [] }) {
             variants={containerVariants}
             className="relative overflow-hidden bg-[#050816] py-16 sm:py-20 px-4"
         >
-            {/* background accents to match hero */}
             <div className="pointer-events-none absolute -left-32 top-0 h-64 w-64 rounded-full bg-[#22d3ee]/14 blur-3xl" />
             <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-[#a855f7]/18 blur-3xl" />
 
             <div className="relative z-10 max-w-6xl mx-auto">
-                {/* heading */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -160,18 +137,16 @@ export default function Skills({ skillsSections = [] }) {
                     </p>
                 </motion.div>
 
-                {/* categories grid */}
                 <motion.div
                     variants={containerVariants}
                     className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8"
                 >
                     {categories.map((category) => (
                         <motion.div
-                            key={category.categoryName}
+                            key={category.categoryName + (category.uuid ? `-${category.uuid}` : '')}
                             variants={itemVariants}
                             className="rounded-2xl border border-white/8 bg-white/[0.02] backdrop-blur-sm p-4 sm:p-6 space-y-4"
                         >
-                            {/* Category header */}
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
                                 <h4 className="text-base sm:text-lg text-slate-100 font-semibold">
                                     {category.categoryName}
@@ -181,20 +156,19 @@ export default function Skills({ skillsSections = [] }) {
                                 </span>
                             </div>
 
-                            {/* Category body */}
-                            {Array.isArray(category.expertises) &&
-                            category.expertises.length > 0 ? (
+                            {Array.isArray(category.expertises) && category.expertises.length > 0 ? (
                                 <div className="space-y-4">
                                     {category.expertises.map((section) => (
                                         <motion.div
-                                            key={section.uuid ?? section.expertiseName}
+                                            key={(section.uuid ?? section.expertiseName) + Math.random()}
                                             variants={itemVariants}
                                             className="rounded-xl border border-white/6 bg-white/[0.015] px-3 py-3 sm:px-4 sm:py-4"
                                         >
-                                            {/* Expertise row: name on left (md+), content on right */}
-                                            <div className="md:grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.8fr)] md:gap-4">
-                                                <div className="mb-2 md:mb-0">
-                                                    <div className="inline-flex items-center gap-2">
+                                            {/* Use a two-column layout on md+ where left is a narrow vertical label and right contains skill cards */}
+                                            <div className="md:grid md:grid-cols-[minmax(0,0.28fr)_minmax(0,1fr)] md:gap-6">
+                                                {/* LEFT: label vertically centered */}
+                                                <div className="mb-2 md:mb-0 flex items-center">
+                                                    <div className="inline-flex items-center gap-3">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
                                                         <h3 className="text-sm sm:text-base font-semibold text-slate-100">
                                                             {section.expertiseName ?? 'Expertise'}
@@ -202,35 +176,59 @@ export default function Skills({ skillsSections = [] }) {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-2.5 sm:space-y-3">
-                                                    {Array.isArray(section.skills) &&
-                                                    section.skills.length > 0 ? (
-                                                        section.skills.map((skill) => (
-                                                            <div
-                                                                key={skill.uuid ?? skill.skillName}
-                                                                className="border border-white/5 rounded-lg px-3 py-2.5 bg-white/[0.01]"
-                                                            >
-                                                                <div className="text-[12px] sm:text-sm font-medium text-slate-200 mb-1.5">
-                                                                    {skill.skillName ?? 'Skill'}
-                                                                </div>
-                                                                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                                                                    {Array.isArray(skill.skillTools) &&
-                                                                    skill.skillTools.length > 0 ? (
-                                                                        skill.skillTools.map((t, idx) => (
-                                                                            <ToolChip
-                                                                                key={t.uuid ?? t.name}
-                                                                                name={t.name ?? 'Tool'}
-                                                                                index={idx}
-                                                                            />
-                                                                        ))
+                                                {/* RIGHT: skill boxes */}
+                                                <div className="space-y-3">
+                                                    {Array.isArray(section.skills) && section.skills.length > 0 ? (
+                                                        section.skills.map((skill) => {
+                                                            const tools = Array.isArray(skill.skillTools) ? skill.skillTools : [];
+                                                            const showSkillTitle =
+                                                                skill.skillName &&
+                                                                skill.skillName.trim() !== '' &&
+                                                                (skill.skillName !== section.expertiseName);
+
+                                                            // if there are no tools and the skill name duplicates expertise, optionally hide the whole box:
+                                                            // (user wanted no duplication and less noise)
+                                                            const shouldHideEmptyDuplicate =
+                                                                !showSkillTitle && tools.length === 0;
+
+                                                            if (shouldHideEmptyDuplicate) return null;
+
+                                                            return (
+                                                                <div
+                                                                    key={skill.uuid ?? skill.skillName ?? Math.random()}
+                                                                    className="border border-white/5 rounded-lg px-3 py-3 bg-white/[0.01] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                                                                >
+                                                                    {/* skill title (only when different from expertise) */}
+                                                                    {showSkillTitle ? (
+                                                                        <div className="text-[12px] sm:text-sm font-medium text-slate-200">
+                                                                            {skill.skillName}
+                                                                        </div>
                                                                     ) : (
-                                                                        <span className="text-[11px] text-slate-500 italic">
-                                                                            No tools added yet.
-                                                                        </span>
+                                                                        // keep spacing consistent when title is hidden
+                                                                        <div className="hidden sm:block w-0" />
                                                                     )}
+
+                                                                    {/* tools area: center vertically, keep chips left-to-right */}
+                                                                    <div className="flex-1 flex items-center">
+                                                                        {tools.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-2">
+                                                                                {tools.map((t, idx) => (
+                                                                                    <ToolChip
+                                                                                        key={t.uuid ?? t.name ?? idx}
+                                                                                        name={t.name ?? 'Tool'}
+                                                                                        index={idx}
+                                                                                    />
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-[11px] text-slate-500 italic">
+                                                                                No tools added yet.
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))
+                                                            );
+                                                        })
                                                     ) : (
                                                         <div className="text-[11px] text-slate-500 italic">
                                                             No skills listed for this area yet.

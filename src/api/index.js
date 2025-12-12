@@ -8,6 +8,7 @@ const http = axios.create({
   baseURL: API_BASE,
   timeout: DEFAULT_TIMEOUT,
   headers: { Accept: 'application/json' },
+  withCredentials: true,           // <- enable cookies
 });
 
 // attach token only for protected /admin/ endpoints
@@ -159,7 +160,7 @@ export const experience = {
 // contact
 export const contact = {
   sendMessage: async (payload) => {
-    try { const res = await http.post('/api/v1/admin/portfolio/send-message', payload); return res.data; }
+    try { const res = await http.post('/api/v1/user/portfolio/send-message', payload); return res.data; }
     catch (e) { throw toError(e); }
   },
 };
