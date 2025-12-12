@@ -6,6 +6,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 
+// HealthMonitor — global listener that shows the "cloud waking up" UI when API health checks are waiting
+import HealthMonitor from './components/common/HealthMonitor';
+
 function App() {
   return (
     <BrowserRouter>
@@ -22,6 +25,9 @@ function App() {
             }
           />
         </Routes>
+
+        {/* Mount the HealthMonitor once — it renders nothing unless an API call is blocked waiting for health */}
+        <HealthMonitor />
       </AuthProvider>
     </BrowserRouter>
   );
