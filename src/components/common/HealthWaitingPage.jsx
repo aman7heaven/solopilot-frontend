@@ -1,4 +1,4 @@
-const MAX_WAIT_MS = Number.parseInt(import.meta.env.HEALTHCHECK_TIMEOUT_MS ?? '', 10) || 4 * 60 * 1000; // ms
+const MAX_WAIT_MS = Number.parseInt(import.meta.env.VITE_HEALTHCHECK_TIMEOUT_MS ?? import.meta.env.HEALTHCHECK_TIMEOUT_MS ?? '', 10) || 4 * 60 * 1000; // ms
 const MAX_WAIT_MINUTES = Math.ceil(MAX_WAIT_MS / 60_000);
 
 export default function HealthWaitingPage({ waitedMs = 0, retry, onClose }) {

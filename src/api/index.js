@@ -64,6 +64,11 @@ const http = axios.create({
 http.interceptors.request.use(
   (cfg) => {
     try {
+      // ensure axios always sends cookies unless explicitly disabled per-request
+      if (cfg && cfg.withCredentials === undefined) cfg.withCredentials = true;
+      if (import.meta.env.DEV) {
+        try { console.debug('[http] req', cfg.method, cfg.url, 'withCredentials=', cfg.withCredentials, 'document.cookie=', typeof document !== 'undefined' ? document.cookie : 'n/a'); } catch (e) {}
+      }
       if (typeof cfg.url === 'string' && cfg.url.includes('/admin/')) {
         const token = localStorage.getItem('sp_token');
         if (token && cfg.headers) cfg.headers.Authorization = `Bearer ${token}`;
@@ -158,7 +163,8 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = HEALTH_DEFAULTS.perR
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { ...opts, signal: controller.signal, cache: 'no-store' });
+    const fetchOpts = { credentials: 'include', ...opts };
+    const res = await fetch(url, { ...fetchOpts, signal: controller.signal, cache: 'no-store' });
     clearTimeout(timer);
     let json = null;
     try { json = await res.json(); } catch (e) { /* ignore non-json */ }
@@ -212,7 +218,11 @@ async function waitForHealth(cfg = {}, onWaiting) {
     // immediate check
     const first = await checkHealthOnce(c);
     let lastStatus = first.status || null;
-  if (first.ok) return true;
+    // If the immediate health probe returned OK, resolve quickly and don't emit any events
+    if (first.ok) return true;
+
+    // Now we _know_ we need to wait: emit a start event so the UI can show a waiting overlay
+    try { emitApiEvent('health:start', { url: (c.base ? `${(c.base ?? '').replace(/\/+$/, '')}${c.healthPath.startsWith('/') ? c.healthPath : `/${c.healthPath}`}` : c.healthPath) }); } catch (e) {}
     while (Date.now() - start < c.overallTimeoutMs) {
       // Call per-dedupe-key callbacks (propagated from concurrent callers)
       if (callbacks.size > 0) {
@@ -249,8 +259,10 @@ async function requestWithHealth(axiosConfig = {}, healthOpts = {}) {
   const cfg = { ...axiosConfig };
   const onWaiting = healthOpts.onWaiting;
 
-  // emit start - an API request is about to block waiting for health
-  emitApiEvent('health:start', { url: cfg.url });
+  // We no longer emit a global 'health:start' here - the waitForHealth
+  // function will emit a 'health:start' only when an immediate probe
+  // fails and we genuinely need to wait; this prevents brief UI flashes
+  // for quick health checks.
 
   const healthy = await waitForHealth({ ...HEALTH_DEFAULTS, ...healthOpts }, (info) => {
     // propagate to both the caller and global listeners
