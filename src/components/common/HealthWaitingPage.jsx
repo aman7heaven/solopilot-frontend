@@ -1,56 +1,5 @@
-// // src/components/common/HealthWaitingPage.jsx
-// import React from "react";
-
-// export default function HealthWaitingPage({ waitedMs = 0, retry, onClose }) {
-//   return (
-//     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-//       <div className="max-w-xl w-full bg-slate-900/80 border border-slate-700 rounded-2xl shadow-2xl p-8 text-white">
-        
-//         <div className="flex flex-col items-center gap-6">
-          
-//           <img
-//             src="https://media.giphy.com/media/3oEduSbSGpGaRX2Vri/giphy.gif"
-//             alt="Waking up"
-//             className="w-40 h-40 object-cover rounded-xl shadow-lg border border-slate-700"
-//           />
-
-//           <h2 className="text-2xl font-bold text-center">
-//             Our cloud service is waking up ☁️💤
-//           </h2>
-
-//           <p className="text-center text-slate-300">
-//             The backend is currently asleep. We’re spinning it up — this can
-//             take up to <strong>2 minutes</strong>.
-//           </p>
-
-//           <p className="text-sm text-slate-400">
-//             Waiting for: <span className="font-semibold">{Math.floor(waitedMs / 1000)}s</span>
-//           </p>
-
-//           <div className="flex gap-3 mt-4">
-//             <button
-//               onClick={retry}
-//               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow font-medium"
-//             >
-//               Retry Now
-//             </button>
-
-//             <button
-//               onClick={onClose}
-//               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg border border-slate-600 font-medium"
-//             >
-//               Dismiss
-//             </button>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-// src/components/common/HealthWaitingPage.jsx
-import React from "react";
-
-const MAX_WAIT_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_WAIT_MS = Number.parseInt(import.meta.env.HEALTHCHECK_TIMEOUT_MS ?? '', 10) || 4 * 60 * 1000; // ms
+const MAX_WAIT_MINUTES = Math.ceil(MAX_WAIT_MS / 60_000);
 
 export default function HealthWaitingPage({ waitedMs = 0, retry, onClose }) {
   const isTimedOut = waitedMs >= MAX_WAIT_MS;
@@ -90,7 +39,7 @@ export default function HealthWaitingPage({ waitedMs = 0, retry, onClose }) {
             ) : (
               <>
                 The backend is currently asleep. We’re spinning it up — this can
-                take up to <strong>2 minutes</strong>.
+                take up to <strong>{MAX_WAIT_MINUTES} {MAX_WAIT_MINUTES === 1 ? 'minute' : 'minutes'}</strong>.
               </>
             )}
           </p>

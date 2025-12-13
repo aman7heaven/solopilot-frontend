@@ -135,10 +135,13 @@ export function extractErrorMessage(err) {
    Health-first utilities
    =========================== */
 
+// read timeout from environment (support both VITE_HEALTHCHECK_TIMEOUT_MS and HEALTHCHECK_TIMEOUT_MS for compatibility)
+const HEALTHCHECK_TIMEOUT_MS = Number.parseInt(import.meta.env.VITE_HEALTHCHECK_TIMEOUT_MS ?? import.meta.env.HEALTHCHECK_TIMEOUT_MS ?? '', 10) || (4 * 60 * 1000);
+
 const HEALTH_DEFAULTS = {
   healthPath: '/actuator/health',
   pollIntervalMs: 3000,
-  overallTimeoutMs: 2 * 60 * 1000, // 2 minutes
+  overallTimeoutMs: HEALTHCHECK_TIMEOUT_MS, // default 4 minutes
   perRequestTimeoutMs: 8000, // abort single health request if >8s
   base: API_BASE,
 };
@@ -330,7 +333,53 @@ export const experience = {
 
 // contact
 export const contact = {
-  sendMessage: async (payload, opts = {}) => requestWithHealth({ method: 'post', url: '/api/v1/admin/portfolio/send-message', data: payload }, opts.healthOpts),
+  sendMessage: async (payload, opts = {}) => requestWithHealth({ method: 'post', url: '/api/v1/user/portfolio/send-message', data: payload }, opts.healthOpts),
+};
+
+// Poll a URL until it responds with HTTP 200 or until overall timeout elapses
+// Returns true if the URL started responding with 200 within the timeout, otherwise false
+export async function pollUrlFor200(url, intervalMs = 10000, overallTimeoutMs = 4 * 60 * 1000, perRequestTimeoutMs = HEALTH_DEFAULTS.perRequestTimeoutMs) {
+  const start = Date.now();
+  // immediate check
+  try {
+    let res = await fetchWithTimeout(url, {}, perRequestTimeoutMs);
+    if (res.ok) return true; // any 2xx will be treated as success
+  } catch (_) {}
+
+  while (Date.now() - start < overallTimeoutMs) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const r = await fetchWithTimeout(url, {}, perRequestTimeoutMs);
+      if (r.ok) return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
+// Wrap the default contact.sendMessage to start a background worker health polling
+// after a successful send. The function still returns the original send response immediately.
+const _originalSend = contact.sendMessage;
+contact.sendMessage = async (payload, opts = {}) => {
+  const res = await _originalSend(payload, opts);
+  // After successful send, start background polling for the worker health endpoint
+  // default target per user's request
+  const workerHealthUrl = (opts && opts.workerHealthUrl) || 'https://solopilot-worker-service.onrender.com/actuator/health';
+  const intervalMs = (opts && opts.workerPollIntervalMs) || 10_000; // 10 seconds
+  const overallTimeoutMs = (opts && opts.workerPollTimeoutMs) || 4 * 60 * 1000; // 4 minutes
+  const perRequestTimeoutMs = (opts && opts.workerPollPerRequestTimeoutMs) || HEALTH_DEFAULTS.perRequestTimeoutMs;
+  // Launch in background (non-blocking)
+  (async () => {
+    try {
+      emitApiEvent('worker:poll:start', { url: workerHealthUrl });
+      const ok = await pollUrlFor200(workerHealthUrl, intervalMs, overallTimeoutMs, perRequestTimeoutMs);
+      if (ok) emitApiEvent('worker:poll:ready', { url: workerHealthUrl });
+      else emitApiEvent('worker:poll:timeout', { url: workerHealthUrl });
+    } catch (e) {
+      // ignore background errors, but emit a failure event
+      emitApiEvent('worker:poll:error', { url: workerHealthUrl, error: extractErrorMessage(e) });
+    }
+  })();
+  return res;
 };
 
 // skills & expertise
